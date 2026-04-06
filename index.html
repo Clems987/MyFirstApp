@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            min-height: 100vh; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Segoe UI', sans-serif; color: #fff;
+        }
+        h1 { margin-bottom: 30px; font-size: 2.5rem; }
+        .menu { display: flex; flex-direction: column; gap: 20px; align-items: center; }
+        .menu a {
+            padding: 20px 50px; font-size: 1.3rem; border-radius: 30px;
+            border: none; cursor: pointer; background: #e94560; color: white;
+            transition: transform 0.2s; text-decoration: none; display: inline-block;
+        }
+        .menu a:hover { transform: translateY(-3px); }
+    </style>
+</head>
+<body>
+    <h1>Tic Tac Toe</h1>
+    <div class="menu">
+        <a href="single.html">Play vs Computer</a>
+        <a href="p2p.html">Play Online (2 Player)</a>
+    </div>
+</body>
+</html>
