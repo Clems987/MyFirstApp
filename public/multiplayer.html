@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe - Online</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+        .menu, .game-mode {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        .menu input, .menu button, .game-mode button {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+        }
+        .menu input {
+            width: 250px;
+            text-align: center;
+        }
+        .menu button, .game-mode button {
+            background: #e94560;
+            color: white;
+            transition: all 0.2s;
+        }
+        .menu button:hover, .game-mode button:hover {
+            transform: translateY(-3px);
+        }
+        .hidden { display: none !important; }
+        .info {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        .score-board {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            background: #0f3460;
+            padding: 15px 30px;
+            border-radius: 25px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+            background: #0f3460;
+            padding: 10px;
+            border-radius: 15px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            background: #1a1a2e;
+            border: none;
+            border-radius: 10px;
+            font-size: 3rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cell:hover:not(.taken) {
+            background: #e94560;
+        }
+        .cell.x { color: #00d9ff; }
+        .cell.o { color: #ff6b6b; }
+        .cell.winner {
+            background: #00ff88;
+            color: #1a1a2e;
+        }
+        .cell.disabled {
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>Tic Tac Toe</h1>
+    
+    <div class="menu" id="menu">
+        <input type="text" id="roomCode" placeholder="Enter room code">
+        <button id="joinBtn">Join Game</button>
+        <button id="createBtn">Create Game</button>
+    </div>
+    
+    <div class="game-mode hidden" id="gameMode">
+        <div class="info" id="info">Waiting for opponent...</div>
+        <div class="score-board">
+            <span>X: <strong id="xScore">0</strong></span>
+            <span>O: <strong id="oScore">0</strong></span>
+        </div>
+        <div class="board" id="board">
+            <button class="cell" data-index="0"></button>
+            <button class="cell" data-index="1"></button>
+            <button class="cell" data-index="2"></button>
+            <button class="cell" data-index="3"></button>
+            <button class="cell" data-index="4"></button>
+            <button class="cell" data-index="5"></button>
+            <button class="cell" data-index="6"></button>
+            <button class="cell" data-index="7"></button>
+            <button class="cell" data-index="8"></button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        
+        const cells = document.querySelectorAll('.cell');
+        const menu = document.getElementById('menu');
+        const gameMode = document.getElementById('gameMode');
+        const info = document.getElementById('info');
+        const roomCodeInput = document.getElementById('roomCode');
+        const xScoreEl = document.getElementById('xScore');
+        const oScoreEl = document.getElementById('oScore');
+        
+        let mySymbol = null;
+        let currentTurn = 'X';
+        let scores = { X: 0, O: 0 };
+        
+        document.getElementById('joinBtn').onclick = () => {
+            const code = roomCodeInput.value.trim().toUpperCase();
+            if (code) {
+                socket.emit('joinRoom', code);
+            }
+        };
+        
+        document.getElementById('createBtn').onclick = () => {
+            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+            roomCodeInput.value = code;
+            socket.emit('joinRoom', code);
+        };
+        
+        socket.on('roomJoined', ({ role, roomCode }) => {
+            mySymbol = role;
+            menu.classList.add('hidden');
+            gameMode.classList.remove('hidden');
+            info.textContent = role === 'X' ? 'You are X. Waiting for O...' : 'You are O. Waiting for game...';
+            roomCodeInput.value = roomCode;
+        });
+        
+        socket.on('gameStart', ({ board }) => {
+            updateBoard(board);
+            info.textContent = `Your turn: ${currentTurn === mySymbol ? 'Yours' : 'Opponent's'}`;
+        });
+        
+        socket.on('updateBoard', ({ board, currentTurn: turn }) => {
+            currentTurn = turn;
+            updateBoard(board);
+            info.textContent = `Your turn: ${turn === mySymbol ? 'Yours' : 'Opponent's'}`;
+        });
+        
+        socket.on('gameOver', ({ winner }) => {
+            if (winner === 'draw') {
+                info.textContent = "It's a draw!";
+            } else {
+                info.textContent = `${winner} wins!`;
+                scores[winner]++;
+                updateScore();
+            }
+            setTimeout(() => {
+                socket.emit('resetGame', roomCodeInput.value);
+            }, 1500);
+        });
+        
+        socket.on('gameReset', () => {
+            resetBoard();
+            info.textContent = `Your turn: ${currentTurn === mySymbol ? 'Yours' : 'Opponent's'}`;
+        });
+        
+        socket.on('playerLeft', () => {
+            alert('Opponent left!');
+            location.reload();
+        });
+        
+        socket.on('error', (msg) => {
+            alert(msg);
+        });
+        
+        function updateBoard(board) {
+            cells.forEach((cell, i) => {
+                cell.textContent = board[i];
+                cell.className = 'cell' + (board[i] ? ' ' + board[i].toLowerCase() + ' taken' : '');
+                if (board[i] || currentTurn !== mySymbol) {
+                    cell.classList.add('disabled');
+                } else {
+                    cell.classList.remove('disabled');
+                }
+            });
+        }
+        
+        function resetBoard() {
+            cells.forEach(cell => {
+                cell.textContent = '';
+                cell.className = 'cell';
+            });
+            scores = { X: 0, O: 0 };
+            updateScore();
+        }
+        
+        function updateScore() {
+            xScoreEl.textContent = scores.X;
+            oScoreEl.textContent = scores.O;
+        }
+        
+        cells.forEach(cell => {
+            cell.onclick = () => {
+                const index = parseInt(cell.dataset.index);
+                if (currentTurn === mySymbol && !cell.classList.contains('taken')) {
+                    socket.emit('makeMove', { 
+                        roomCode: roomCodeInput.value, 
+                        index, 
+                        symbol: mySymbol 
+                    });
+                }
+            };
+        });
+    </script>
+</body>
+</html>
