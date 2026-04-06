@@ -39,14 +39,14 @@
     <h1>Tic Tac Toe - P2P</h1>
     
     <div class="menu" id="menu">
-        <p>Your ID:</p>
+        <p>Share this code with your friend:</p>
         <input type="text" id="myId" readonly onclick="this.select()">
-        <button id="copyId" class="copy-btn">Copy ID</button>
+        <button id="copyId" class="copy-btn">Copy</button>
         <hr style="width:100%;border-color:#333">
-        <p>Enter friend's ID to connect:</p>
-        <input type="text" id="peerId" placeholder="Friend's ID">
+        <p>Enter friend's code:</p>
+        <input type="text" id="peerId" placeholder=" friend's code" style="text-transform:uppercase">
         <button id="connectBtn">Connect</button>
-        <p id="status">Waiting for connection...</p>
+        <p id="status">Enter friend's code to play</p>
     </div>
     
     <div class="game hidden" id="game">
