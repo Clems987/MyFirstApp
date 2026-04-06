@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe - P2P</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            min-height: 100vh; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Segoe UI', sans-serif; color: #fff;
+        }
+        h1 { margin-bottom: 20px; font-size: 2rem; }
+        .menu, .game { display: flex; flex-direction: column; gap: 15px; align-items: center; }
+        input, button { padding: 12px 25px; font-size: 1.1rem; border-radius: 20px; border: none; cursor: pointer; }
+        input { width: 280px; text-align: center; }
+        button { background: #e94560; color: white; }
+        .hidden { display: none !important; }
+        .info { margin-bottom: 15px; font-size: 1.2rem; }
+        .board {
+            display: grid; grid-template-columns: repeat(3, 90px); grid-template-rows: repeat(3, 90px);
+            gap: 8px; background: #0f3460; padding: 10px; border-radius: 15px;
+        }
+        .cell {
+            width: 90px; height: 90px; background: #1a1a2e; border: none;
+            border-radius: 10px; font-size: 2.5rem; font-weight: bold;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .cell:hover:not(.taken) { background: #e94560; }
+        .cell.x { color: #00d9ff; }
+        .cell.o { color: #ff6b6b; }
+        .cell.winner { background: #00ff88; color: #1a1a2e; }
+        .copy-btn { background: #0f3460; font-size: 0.9rem; padding: 8px 15px; }
+    </style>
+</head>
+<body>
+    <h1>Tic Tac Toe - P2P</h1>
+    
+    <div class="menu" id="menu">
+        <p>Your ID:</p>
+        <input type="text" id="myId" readonly onclick="this.select()">
+        <button id="copyId" class="copy-btn">Copy ID</button>
+        <hr style="width:100%;border-color:#333">
+        <p>Enter friend's ID to connect:</p>
+        <input type="text" id="peerId" placeholder="Friend's ID">
+        <button id="connectBtn">Connect</button>
+        <p id="status">Waiting for connection...</p>
+    </div>
+    
+    <div class="game hidden" id="game">
+        <div class="info" id="info"></div>
+        <div class="board" id="board">
+            <button class="cell" data-index="0"></button>
+            <button class="cell" data-index="1"></button>
+            <button class="cell" data-index="2"></button>
+            <button class="cell" data-index="3"></button>
+            <button class="cell" data-index="4"></button>
+            <button class="cell" data-index="5"></button>
+            <button class="cell" data-index="6"></button>
+            <button class="cell" data-index="7"></button>
+            <button class="cell" data-index="8"></button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        const cells = document.querySelectorAll('.cell');
+        const menu = document.getElementById('menu');
+        const game = document.getElementById('game');
+        const info = document.getElementById('info');
+        const myIdInput = document.getElementById('myId');
+        const peerIdInput = document.getElementById('peerId');
+        const statusEl = document.getElementById('status');
+        
+        let peer = null;
+        let conn = null;
+        let mySymbol = null;
+        let currentTurn = 'X';
+        let board = Array(9).fill('');
+        let scores = { X: 0, O: 0 };
+        
+        const winningCombos = [
+            [0,1,2], [3,4,5], [6,7,8], [0,3,6], [1,4,7], [2,5,8], [0,4,8], [2,4,6]
+        ];
+        
+        function checkWinner(b) {
+            for (let c of winningCombos) {
+                if (b[c[0]] && b[c[0]] === b[c[1]] && b[c[0]] === b[c[2]]) return b[c[0]];
+            }
+            if (b.every(x => x)) return 'draw';
+            return null;
+        }
+        
+        peer = new Peer();
+        peer.on('open', id => {
+            myIdInput.value = id;
+        });
+        
+        peer.on('connection', c => {
+            setupConnection(c, 'O');
+        });
+        
+        document.getElementById('copyId').onclick = () => {
+            myIdInput.select();
+            document.execCommand('copy');
+        };
+        
+        document.getElementById('connectBtn').onclick = () => {
+            const pid = peerIdInput.value.trim();
+            if (pid) {
+                conn = peer.connect(pid);
+                setupConnection(conn, 'X');
+            }
+        };
+        
+        function setupConnection(c, symbol) {
+            conn = c;
+            mySymbol = symbol;
+            
+            c.on('open', () => {
+                menu.classList.add('hidden');
+                game.classList.remove('hidden');
+                info.textContent = `You are ${symbol}. ${symbol === 'X' ? 'Your turn' : 'Waiting...'}`;
+            });
+            
+            c.on('data', data => {
+                if (data.type === 'move') {
+                    board[data.index] = data.symbol;
+                    currentTurn = currentTurn === 'X' ? 'O' : 'X';
+                    updateBoard();
+                    checkEnd();
+                } else if (data.type === 'board') {
+                    board = data.board;
+                    currentTurn = data.turn;
+                    updateBoard();
+                } else if (data.type === 'reset') {
+                    board = Array(9).fill('');
+                    currentTurn = 'X';
+                    updateBoard();
+                }
+            });
+            
+            c.on('close', () => {
+                alert('Connection lost!');
+                location.reload();
+            });
+        }
+        
+        function send(data) {
+            if (conn && conn.open) conn.send(data);
+        }
+        
+        function updateBoard() {
+            cells.forEach((cell, i) => {
+                cell.textContent = board[i];
+                cell.className = 'cell' + (board[i] ? ' ' + board[i].toLowerCase() + ' taken' : '');
+                if (board[i] || currentTurn !== mySymbol) {
+                    cell.style.cursor = 'default';
+                } else {
+                    cell.style.cursor = 'pointer';
+                }
+            });
+            info.textContent = currentTurn === mySymbol ? 'Your turn!' : `Waiting for ${currentTurn}...`;
+        }
+        
+        function checkEnd() {
+            const w = checkWinner(board);
+            if (w) {
+                info.textContent = w === 'draw' ? "Draw!" : `${w} wins!`;
+                if (w !== 'draw') scores[w]++;
+                setTimeout(() => {
+                    send({ type: 'reset' });
+                    board = Array(9).fill('');
+                    currentTurn = 'X';
+                    updateBoard();
+                }, 1500);
+            }
+        }
+        
+        cells.forEach(cell => {
+            cell.onclick = () => {
+                const i = parseInt(cell.dataset.index);
+                if (currentTurn === mySymbol && !board[i]) {
+                    board[i] = mySymbol;
+                    send({ type: 'move', index: i, symbol: mySymbol });
+                    currentTurn = currentTurn === 'X' ? 'O' : 'X';
+                    updateBoard();
+                    checkEnd();
+                }
+            };
+        });
+    </script>
+</body>
+</html>
