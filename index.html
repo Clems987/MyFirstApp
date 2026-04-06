@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+        }
+        h1 {
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .status {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            min-height: 40px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+            background: #0f3460;
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            background: #1a1a2e;
+            border: none;
+            border-radius: 10px;
+            font-size: 3rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cell:hover:not(.taken) {
+            background: #e94560;
+            transform: scale(1.05);
+        }
+        .cell.x {
+            color: #00d9ff;
+        }
+        .cell.o {
+            color: #ff6b6b;
+        }
+        .cell.winner {
+            background: #00ff88;
+            color: #1a1a2e;
+        }
+        .reset-btn {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 5px 15px rgba(233,69,96,0.4);
+        }
+        .reset-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(233,69,96,0.6);
+        }
+    </style>
+</head>
+<body>
+    <h1>Tic Tac Toe</h1>
+    <div class="status" id="status">Your turn (X)</div>
+    <div class="board" id="board">
+        <button class="cell" data-index="0"></button>
+        <button class="cell" data-index="1"></button>
+        <button class="cell" data-index="2"></button>
+        <button class="cell" data-index="3"></button>
+        <button class="cell" data-index="4"></button>
+        <button class="cell" data-index="5"></button>
+        <button class="cell" data-index="6"></button>
+        <button class="cell" data-index="7"></button>
+        <button class="cell" data-index="8"></button>
+    </div>
+    <button class="reset-btn" id="resetBtn">New Game</button>
+
+    <script>
+        const cells = document.querySelectorAll('.cell');
+        const statusEl = document.getElementById('status');
+        const resetBtn = document.getElementById('resetBtn');
+        
+        let board = ['', '', '', '', '', '', '', '', ''];
+        let gameActive = true;
+        const player = 'X';
+        const computer = 'O';
+        
+        const winningCombos = [
+            [0,1,2], [3,4,5], [6,7,8],
+            [0,3,6], [1,4,7], [2,5,8],
+            [0,4,8], [2,4,6]
+        ];
+        
+        function checkWinner() {
+            for (let combo of winningCombos) {
+                const [a, b, c] = combo;
+                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                    return { winner: board[a], combo };
+                }
+            }
+            if (!board.includes('')) return { winner: 'draw' };
+            return null;
+        }
+        
+        function getAvailableMoves() {
+            return board.map((v, i) => v === '' ? i : -1).filter(i => i !== -1);
+        }
+        
+        function findWinningMove(symbol) {
+            for (let combo of winningCombos) {
+                const [a, b, c] = combo;
+                const line = [board[a], board[b], board[c]];
+                const symbolCount = line.filter(s => s === symbol).length;
+                const emptyCount = line.filter(s => s === '').length;
+                if (symbolCount === 2 && emptyCount === 1) {
+                    if (board[a] === '') return a;
+                    if (board[b] === '') return b;
+                    if (board[c] === '') return c;
+                }
+            }
+            return -1;
+        }
+        
+        function computerMove() {
+            let move = findWinningMove(computer);
+            if (move !== -1) return move;
+            
+            move = findWinningMove(player);
+            if (move !== -1) return move;
+            
+            const available = getAvailableMoves();
+            if (available.length === 9) return 4;
+            
+            return available[Math.floor(Math.random() * available.length)];
+        }
+        
+        function makeMove(index, symbol) {
+            board[index] = symbol;
+            cells[index].textContent = symbol;
+            cells[index].classList.add(symbol.toLowerCase(), 'taken');
+        }
+        
+        function handleClick(e) {
+            const cell = e.target;
+            const index = parseInt(cell.dataset.index);
+            
+            if (board[index] || !gameActive) return;
+            
+            makeMove(index, player);
+            
+            const result = checkWinner();
+            if (result) {
+                endGame(result);
+                return;
+            }
+            
+            statusEl.textContent = "Computer is thinking...";
+            gameActive = false;
+            
+            setTimeout(() => {
+                const compMove = computerMove();
+                makeMove(compMove, computer);
+                const result = checkWinner();
+                if (result) {
+                    endGame(result);
+                } else {
+                    gameActive = true;
+                    statusEl.textContent = "Your turn (X)";
+                }
+            }, 500);
+        }
+        
+        function endGame(result) {
+            gameActive = false;
+            if (result.winner === 'draw') {
+                statusEl.textContent = "It's a draw!";
+            } else if (result.winner === player) {
+                statusEl.textContent = "You win!";
+                result.combo.forEach(i => cells[i].classList.add('winner'));
+            } else {
+                statusEl.textContent = "Computer wins!";
+                result.combo.forEach(i => cells[i].classList.add('winner'));
+            }
+            
+            setTimeout(() => {
+                if (confirm(result.winner === 'draw' ? "It's a draw! Play again?" : (result.winner === player ? "You win! Play again?" : "Computer wins! Play again?"))) {
+                    resetGame();
+                }
+            }, 300);
+        }
+        
+        function resetGame() {
+            board = ['', '', '', '', '', '', '', '', ''];
+            gameActive = true;
+            statusEl.textContent = "Your turn (X)";
+            cells.forEach(cell => {
+                cell.textContent = '';
+                cell.className = 'cell';
+            });
+        }
+        
+        cells.forEach(cell => cell.addEventListener('click', handleClick));
+        resetBtn.addEventListener('click', resetGame);
+    </script>
+</body>
+</html>
