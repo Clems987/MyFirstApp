@@ -25,6 +25,27 @@
             font-size: 2.5rem;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
+        .score-board {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            background: #0f3460;
+            padding: 15px 30px;
+            border-radius: 25px;
+        }
+        .difficulty {
+            margin-bottom: 20px;
+        }
+        .difficulty select {
+            padding: 8px 15px;
+            font-size: 1rem;
+            border-radius: 15px;
+            border: none;
+            background: #0f3460;
+            color: white;
+            cursor: pointer;
+        }
         .status {
             margin-bottom: 20px;
             font-size: 1.5rem;
@@ -88,6 +109,19 @@
 </head>
 <body>
     <h1>Tic Tac Toe</h1>
+    <div class="score-board">
+        <span>You: <strong id="playerScore">0</strong></span>
+        <span>Draw: <strong id="drawScore">0</strong></span>
+        <span>Computer: <strong id="computerScore">0</strong></span>
+    </div>
+    <div class="difficulty">
+        <label>Difficulty: </label>
+        <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+        </select>
+    </div>
     <div class="status" id="status">Your turn (X)</div>
     <div class="board" id="board">
         <button class="cell" data-index="0"></button>
@@ -100,17 +134,22 @@
         <button class="cell" data-index="7"></button>
         <button class="cell" data-index="8"></button>
     </div>
-    <button class="reset-btn" id="resetBtn">New Game</button>
+    <button class="reset-btn" id="resetBtn">New Game (resets score)</button>
 
-    <script>
+<script>
         const cells = document.querySelectorAll('.cell');
         const statusEl = document.getElementById('status');
         const resetBtn = document.getElementById('resetBtn');
+        const playerScoreEl = document.getElementById('playerScore');
+        const computerScoreEl = document.getElementById('computerScore');
+        const drawScoreEl = document.getElementById('drawScore');
         
-        let board = ['', '', '', '', '', '', '', '', ''];
+        let scores = { player: 0, computer: 0, draw: 0 };
+        let board = Array(9).fill('');
         let gameActive = true;
         const player = 'X';
         const computer = 'O';
+        let difficulty = 'medium';
         
         const winningCombos = [
             [0,1,2], [3,4,5], [6,7,8],
@@ -125,7 +164,7 @@
                     return { winner: board[a], combo };
                 }
             }
-            if (!board.includes('')) return { winner: 'draw' };
+            if (board.every(cell => cell !== '')) return { winner: 'draw' };
             return null;
         }
         
@@ -137,9 +176,9 @@
             for (let combo of winningCombos) {
                 const [a, b, c] = combo;
                 const line = [board[a], board[b], board[c]];
-                const symbolCount = line.filter(s => s === symbol).length;
-                const emptyCount = line.filter(s => s === '').length;
-                if (symbolCount === 2 && emptyCount === 1) {
+                const count = line.filter(s => s === symbol).length;
+                const empty = line.filter(s => s === '').length;
+                if (count === 2 && empty === 1) {
                     if (board[a] === '') return a;
                     if (board[b] === '') return b;
                     if (board[c] === '') return c;
@@ -148,14 +187,86 @@
             return -1;
         }
         
+        function minimax(b, depth, isMaximizing) {
+            const result = checkWinnerForMinimax(b);
+            if (result) {
+                if (result.winner === computer) return 10 - depth;
+                if (result.winner === player) return depth - 10;
+                return 0;
+            }
+            
+            const available = b.map((v, i) => v === '' ? i : -1).filter(i => i !== -1);
+            if (available.length === 0) return 0;
+            
+            if (isMaximizing) {
+                let best = -Infinity;
+                for (let move of available) {
+                    b[move] = computer;
+                    best = Math.max(best, minimax(b, depth + 1, false));
+                    b[move] = '';
+                    if (best >= 10) return best;
+                }
+                return best;
+            } else {
+                let best = Infinity;
+                for (let move of available) {
+                    b[move] = player;
+                    best = Math.min(best, minimax(b, depth + 1, true));
+                    b[move] = '';
+                    if (best <= -10) return best;
+                }
+                return best;
+            }
+        }
+        
+        function checkWinnerForMinimax(b) {
+            for (let combo of winningCombos) {
+                const [a, b_, c] = combo;
+                if (b[a] && b[a] === b[b_] && b[a] === b[c]) {
+                    return { winner: b[a] };
+                }
+            }
+            if (b.every(cell => cell !== '')) return { winner: 'draw' };
+            return null;
+        }
+        
+        function getBestMove() {
+            const available = board.map((v, i) => v === '' ? i : -1).filter(i => i !== -1);
+            let bestScore = -Infinity;
+            let bestMove = available[0];
+            
+            for (let move of available) {
+                board[move] = computer;
+                const score = minimax(board, 0, false);
+                board[move] = '';
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMove = move;
+                }
+            }
+            return bestMove;
+        }
+        
         function computerMove() {
+            const available = getAvailableMoves();
+            
+            if (difficulty === 'easy') {
+                if (Math.random() < 0.3) return available[Math.floor(Math.random() * available.length)];
+                let move = findWinningMove(computer);
+                if (move !== -1) return move;
+                return available[Math.floor(Math.random() * available.length)];
+            }
+            
+            if (difficulty === 'hard') {
+                return getBestMove();
+            }
+            
             let move = findWinningMove(computer);
             if (move !== -1) return move;
             
             move = findWinningMove(player);
             if (move !== -1) return move;
             
-            const available = getAvailableMoves();
             if (available.length === 9) return 4;
             
             return available[Math.floor(Math.random() * available.length)];
@@ -175,7 +286,7 @@
             
             makeMove(index, player);
             
-            const result = checkWinner();
+            let result = checkWinner();
             if (result) {
                 endGame(result);
                 return;
@@ -187,7 +298,7 @@
             setTimeout(() => {
                 const compMove = computerMove();
                 makeMove(compMove, computer);
-                const result = checkWinner();
+                result = checkWinner();
                 if (result) {
                     endGame(result);
                 } else {
@@ -201,23 +312,27 @@
             gameActive = false;
             if (result.winner === 'draw') {
                 statusEl.textContent = "It's a draw!";
+                scores.draw++;
+                drawScoreEl.textContent = scores.draw;
             } else if (result.winner === player) {
                 statusEl.textContent = "You win!";
+                scores.player++;
+                playerScoreEl.textContent = scores.player;
                 result.combo.forEach(i => cells[i].classList.add('winner'));
             } else {
                 statusEl.textContent = "Computer wins!";
+                scores.computer++;
+                computerScoreEl.textContent = scores.computer;
                 result.combo.forEach(i => cells[i].classList.add('winner'));
             }
             
             setTimeout(() => {
-                if (confirm(result.winner === 'draw' ? "It's a draw! Play again?" : (result.winner === player ? "You win! Play again?" : "Computer wins! Play again?"))) {
-                    resetGame();
-                }
-            }, 300);
+                resetGame();
+            }, 1000);
         }
         
         function resetGame() {
-            board = ['', '', '', '', '', '', '', '', ''];
+            board = Array(9).fill('');
             gameActive = true;
             statusEl.textContent = "Your turn (X)";
             cells.forEach(cell => {
@@ -226,8 +341,20 @@
             });
         }
         
+        function resetScores() {
+            scores = { player: 0, computer: 0, draw: 0 };
+            playerScoreEl.textContent = 0;
+            computerScoreEl.textContent = 0;
+            drawScoreEl.textContent = 0;
+            resetGame();
+        }
+        
+        document.getElementById('difficulty').addEventListener('change', function(e) {
+            difficulty = e.target.value;
+        });
+        
         cells.forEach(cell => cell.addEventListener('click', handleClick));
-        resetBtn.addEventListener('click', resetGame);
+        resetBtn.addEventListener('click', resetScores);
     </script>
 </body>
 </html>
