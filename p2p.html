@@ -93,9 +93,9 @@
             return null;
         }
         
-        peer = new Peer();
+        peer = new Peer('ttt-' + Math.random().toString(36).substring(2, 6));
         peer.on('open', id => {
-            myIdInput.value = id;
+            myIdInput.value = id.replace('ttt-', '');
         });
         
         peer.on('connection', c => {
@@ -110,7 +110,7 @@
         document.getElementById('connectBtn').onclick = () => {
             const pid = peerIdInput.value.trim();
             if (pid) {
-                conn = peer.connect(pid);
+                conn = peer.connect('ttt-' + pid);
                 setupConnection(conn, 'X');
             }
         };
